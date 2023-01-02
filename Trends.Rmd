@@ -1,0 +1,138 @@
+---
+title: 'Trends in Back Pain'
+date: "15 Apr 2022 (first version 16 Oct 2021)"
+output: 
+  html_document:
+    code_folding: hide
+bibliography: biblio_trends.bib
+---
+
+
+```{r setup, include=TRUE, message=FALSE, warning=FALSE} 
+
+#Preliminaries:
+knitr::opts_chunk$set(message=FALSE, warning=FALSE)
+
+rm(list=ls())
+
+library(tidyverse)
+library(lubridate)
+library(viridis)
+library(gtrendsR)
+library(forecast)
+library(jtools)
+library(sandwich)
+
+theme_set(theme_light())
+
+dir.create("filesTrends", showWarnings = FALSE)
+
+```
+
+
+## Introduction
+
+Back pain is a common issue across the globe, increasing due to an ageing population and little physical exercise (the latter is usually considered a good ingredient to improve the situation). However, from 2020 onward, exercise decreased strongly due to policies to mitigate the COVID-19 pandemic. Hence, a natural question is whether political lockdown had a negative influence on the prevalence of back pain. One potential mechanism could be higher number of people working from home. But how to detect changes in back pain over time? One way to approach this is to use [Google Trends](https://trends.google.de/trends), as it provides quasi instant access to aggregated queries from Google users. @hoerger2020impact, @knipe2020mapping and @brodeur2021covid  use Google Trends to assess the impact of the pandemic on mental health/well being. @szilagyi2021google compare queries for back pain, before and after the pandemic. Seasonality of back pain in Italy was analyzed by @ciaffi2021seasonality. But can health issues really be traced back to the COVID-19 pandemic, and how? 
+
+
+## Data Analysis
+
+Lets figure out the relative amount internet users were looking for back pain related keywords from 2016 onward. We focus on queries from Germany, and assume that the back pain synonyms 'Rückenschmerzen', 'Rücken Schmerzen', 'Rückenschmerz', 'Rücken Schmerz', reflect overall interest in this topic, as a proxy for the associated burden of disease over time. Data is provided on a monthly level.
+
+
+```{r }
+#trends <- gtrends(keyword = c("Schmerz Rücken + Rückenschmerz + Schmerzen Rücken + Rückenschmerzen"), time = #'2016-01-01 2022-03-31', geo="DE")
+#write_rds(trends, "filesTrends/trends_ruecken20220415.rds")
+trends <- read_rds("filesTrends/trends_ruecken20220415.rds")
+
+#transform important variables 
+trends$interest_over_time  <- trends$interest_over_time %>%
+        mutate(date=as.Date(date))
+
+#Visualize Backpain over time
+trends$interest_over_time %>%
+  ggplot() +
+  geom_line(aes(x=date, y=hits),  color = "darkred") +
+  geom_smooth(aes(x=date, y=hits)) +
+  theme_minimal() +
+  scale_colour_viridis_d(option="viridis") +
+  labs(y="relative amount of queries", x="year", title="Figure 1: Queries for back pain over time")
+
+```
+
+
+We see in Figure 1 that the relative number of queries is increasing steadily over time, ie there is a positive time trend. In order to better understand the data structure let us now decompose, trend, seasonality and error (using just complete 12 year periods):
+
+```{r}
+#create time series:
+ts_in <- trends$interest_over_time %>%
+  filter(date>= '2016-01-01' & date<= '2020-12-31') %>%
+  mutate(Jahr=year(date)) %>%
+  select(hits) %>% 
+  pull()
+
+back_ts <- ts(ts_in, start = c(2016, 1),   frequency = 12) 
+
+dcp <- mstl(back_ts, s.window="periodic")
+autoplot(dcp) +
+  labs(title="Figure 2: Multiple seasonal decomposition of back pain queries")
+
+
+
+```
+
+
+A monthly seasonal pattern can be seen which we should keep in mind when analyzing the relation of the pandemic with back pain. Due to the time structure of our data also autocorrelation is a potential issue we should we aware of.
+
+```  {r}
+
+
+ggPacf(back_ts, main="Figure 3: Partial autocorrelation plot (back pain queries)")
+
+```
+
+A strong partial autocorrelation with monthly lags can be seen which should be taken into account as well. Let us put together what we have learned so far, in order to assess whether the COVID-19 period is statistically associated with Google-queries for back pain: We do so by applying *segmented regression analysis* [e.g. @wagner2002segmented; @jebb2015time] assuming an interrupted linear time trend in our model. The dependent variable $hits_t$ reflects the relative amount of queries for back pain over months $t$, and is considered in logarithmic form. Explanatory variable $time_t$ is added to account for an assumed (partly *counterfactual*) linear time trend. Since lockdown policies began in Germany at 2020-3-16, we test for a level change at the beginning of treatment by adding a dummy variable $P_t$ to the specification. As the back pain-trend may change during the lockdown, we add another time variable $time\:since\:treatment_t$ to the specification -- capturing time since treatment, zero before. This leads to the following regression:
+
+<center> 
+
+$log(hits_t) = \beta_0 + \beta_1\,time_t + \beta_2\,P_t + \beta_3\:time\,since\:treatment_t + \epsilon_t$ 
+
+</center>
+
+Finally, dummy variables for each month are added to our specification in order to capture the seasonality of queries for back pain, as discussed above.  The autocorrelated residuals are accounted for by using Newey-West standard errors.
+
+```  {r}
+data_impact <- trends$interest_over_time %>%
+  arrange(date) %>%
+  mutate(time=row_number()-1, month=as.factor(month(date)), hits_l1=lag(hits),     
+         policy=if_else(date>=as.Date('2020-03-16'), 1, 0),
+         min_time_2=min(if_else(policy==1, row_number(), NA_integer_), na.rm=TRUE)-1
+         , time_2=ifelse(policy==1, row_number()-min_time_2, 0))
+
+lm_out <- lm(log(hits) ~ time + month  + policy + time_2, data=data_impact)
+
+ipct_out <- round(exp(lm_out$coefficients["time_2"])*100-100, 3)
+
+summ(lm_out, vcov=NeweyWest(lm_out, lag=8, prewhite=TRUE, adjust=TRUE), digits = 3) 
+
+
+```
+
+Our regression shows that the COVID-19 time period is indeed associated with a higher share of queries for back pain, given a linear time trend and month-flags. However, although positive, the level change after treatment lacks statistical significance (p>0.05). Instead, compared to baseline, we find a steady increase of relative queries from the beginning of lockdown onward. From this point queries increased around $(e^{\hat{\beta}_3}-1)\cdot100=$```r ipct_out``` percent each month -- in addition to the assumed counterfactual time trend $\beta_1$. This suggests that although people were saved concerning a COVID-19 infection, there seem to be a negative external effect on other health outcomes in Germany (in addition to the psychological and economic burden). 
+
+
+## Conclusion
+
+Overall we have found a substantial increase in the relative interest in back pain based on online queries using Google Trends. What can be done? From a policy perspective it is clear that there need to be enough supply of health care provision in order for sufficient treatment, mitigate pain and avoidance of chronic disease.  Another important aspect of  back pain-treatment often is a person's self awareness, to successfully figure out what he or she needs and when and what exercise to do. Here, in addition to professional help, [digital services](https://letmegooglethat.com/?q=back+pain+help) can support to easily access information and provide tools in order to relieve pain -- given high quality information is provided.
+
+One thing we have to keep in mind, is that Google Trends reflect the importance of queries, relative to all queries at a point in time at a specific location. It is obvious that the overall internet queries increased strongly in 2020. So our results from above suggest that back pain queries increased even more strongly. 
+
+Generally, we can imagine that process data from internet companies allow to address a lot interesting questions. Indeed, @stephens2018everybody argues that people's thoughts/motivations are much more honestly reflected in their internet searches, as compared to answering survey questions.    
+
+---
+nocite: |
+  @p1, @p2, @p3, @p4
+---
+
+
+## References
