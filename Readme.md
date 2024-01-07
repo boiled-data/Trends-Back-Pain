@@ -28,23 +28,24 @@ considered a good ingredient to improve the situation). However, from
 2020 onward, exercise decreased strongly due to policies to mitigate the
 COVID-19 pandemic. Hence, a natural question is whether political
 lockdown had a negative influence on the prevalence of back pain. One
-potential mechanism could be higher number of people working from home.
-But how to detect changes in back pain over time? One way to approach
-this is to use [Google Trends](https://trends.google.de/trends), as it
-provides quasi instant access to aggregated queries from Google users.
-Hoerger et al. (2020), Knipe et al. (2020) and Brodeur et al. (2021) use
-Google Trends to assess the impact of the pandemic on mental health/well
-being. Szilagyi et al. (2021) compare queries for back pain, before and
-after the pandemic. Seasonality of back pain in Italy was analyzed by
-Ciaffi et al. (2021). But can health issues really be traced back to the
+potential mechanism could be a higher number of people working from
+home. But how to detect changes in back pain over time? One way to
+approach this is to use [Google
+Trends](https://trends.google.de/trends), as it provides quasi-instant
+access to aggregated queries from Google users. Hoerger et al. (2020),
+Knipe et al. (2020) and Brodeur et al. (2021) use Google Trends to
+assess the impact of the pandemic on mental health/well-being. Szilagyi
+et al. (2021) compare queries for back pain, before and after the
+pandemic. The seasonality of back pain in Italy was analyzed by Ciaffi
+et al. (2021). But can health issues really be traced back to the
 COVID-19 pandemic, and how?
 
 ## Data Analysis
 
-Lets figure out the relative amount internet users were looking for back
-pain related keywords from 2016 onward. We focus on queries from
-Germany, and assume that the back pain synonyms ‘Rückenschmerzen’,
-‘Rücken Schmerzen’, ‘Rückenschmerz’, ‘Rücken Schmerz’, reflect overall
+Let us figure out the relative amount of internet queries for back
+pain-related keywords from 2016 onward. We focus on queries from Germany
+and assume that the back pain synonyms ‘Rückenschmerzen’, ‘Rücken
+Schmerzen’, ‘Rückenschmerz’, ‘Rücken Schmerz’, reflect the overall
 interest in this topic, as a proxy for the associated burden of disease
 over time. Data is provided on a monthly level.
 
@@ -67,12 +68,12 @@ trends$interest_over_time %>%
   labs(y="relative amount of queries", x="year", title="Figure 1: Queries for back pain over time")
 ```
 
-![](Trends_files/figure-markdown_github/unnamed-chunk-1-1.png)
+![](Trends_files/figure-gfm/unnamed-chunk-1-1.png)<!-- -->
 
 We see in Figure 1 that the relative number of queries is increasing
 steadily over time, ie there is a positive time trend. In order to
 better understand the data structure let us now decompose, trend,
-seasonality and error (using just complete 12 year periods):
+seasonality and error (using just complete 12-year periods):
 
 ``` r
 #create time series:
@@ -89,40 +90,39 @@ autoplot(dcp) +
   labs(title="Figure 2: Multiple seasonal decomposition of back pain queries")
 ```
 
-![](Trends_files/figure-markdown_github/unnamed-chunk-2-1.png)
+![](Trends_files/figure-gfm/unnamed-chunk-2-1.png)<!-- -->
 
 A monthly seasonal pattern can be seen which we should keep in mind when
-analyzing the relation of the pandemic with back pain. Due to the time
-structure of our data also autocorrelation is a potential issue we
-should we aware of.
+analyzing the relationship between the pandemic with back pain. Due to
+the time structure of our data also autocorrelation is a potential issue
+we should be aware of.
 
 ``` r
 ggPacf(back_ts, main="Figure 3: Partial autocorrelation plot (back pain queries)")
 ```
 
-![](Trends_files/figure-markdown_github/unnamed-chunk-3-1.png)
+![](Trends_files/figure-gfm/unnamed-chunk-3-1.png)<!-- -->
 
 A strong partial autocorrelation with monthly lags can be seen which
 should be taken into account as well. Let us put together what we have
 learned so far, in order to assess whether the COVID-19 period is
-statistically associated with Google-queries for back pain: We do so by
+statistically associated with Google queries for back pain: We do so by
 applying *segmented regression analysis* (e.g. Wagner et al. 2002; Jebb
 et al. 2015) assuming an interrupted linear time trend in our model. The
-dependent variable *h**i**t**s*<sub>*t*</sub> reflects the relative
-amount of queries for back pain over months *t*, and is considered in
-logarithmic form. Explanatory variable *t**i**m**e*<sub>*t*</sub> is
-added to account for an assumed (partly *counterfactual*) linear time
-trend. Since lockdown policies began in Germany at 2020-3-16, we test
-for a level change at the beginning of treatment by adding a dummy
-variable *P*<sub>*t*</sub> to the specification. As the back pain-trend
-may change during the lockdown, we add another time variable
-*t**i**m**e* *s**i**n**c**e* *t**r**e**a**t**m**e**n**t*<sub>*t*</sub>
-to the specification – capturing time since treatment, zero before. This
-leads to the following regression:
+dependent variable $hits_t$ reflects the relative amount of queries for
+back pain over months $t$ and is considered in logarithmic form.
+Explanatory variable $time_t$ is added to account for an assumed (partly
+*counterfactual*) linear time trend. Since lockdown policies began in
+Germany on 2020-3-16, we test for a level change at the beginning of
+treatment by adding a dummy variable $P_t$ to the specification. As the
+back pain trend may change during the lockdown, we add another time
+variable $time\:since\:treatment_t$ to the specification – capturing
+time since treatment, zero before. This leads to the following
+regression:
 
 <center>
 
-*l**o**g*(*h**i**t**s*<sub>*t*</sub>) = *β*<sub>0</sub> + *β*<sub>1</sub> *t**i**m**e*<sub>*t*</sub> + *β*<sub>2</sub> *P*<sub>*t*</sub> + *β*<sub>3</sub> *t**i**m**e* *s**i**n**c**e* *t**r**e**a**t**m**e**n**t*<sub>*t*</sub> + *ϵ*<sub>*t*</sub>
+$log(hits_t) = \beta_0 + \beta_1\,time_t + \beta_2\,P_t + \beta_3\:time\,since\:treatment_t + \epsilon_t$
 
 </center>
 
@@ -134,7 +134,7 @@ Newey-West standard errors.
 ``` r
 data_impact <- trends$interest_over_time %>%
   arrange(date) %>%
-  mutate(time=row_number()-1, month=as.factor(month(date)), hits_l1=lag(hits),     
+  mutate(time=row_number()-1, month=as.factor(month(date)), hits_l1=dplyr::lag(hits),     
          policy=if_else(date>=as.Date('2020-03-16'), 1, 0),
          min_time_2=min(if_else(policy==1, row_number(), NA_integer_), na.rm=TRUE)-1
          , time_2=ifelse(policy==1, row_number()-min_time_2, 0))
@@ -491,12 +491,12 @@ Our regression shows that the COVID-19 time period is indeed associated
 with a higher share of queries for back pain, given a linear time trend
 and month-flags. However, although positive, the level change after
 treatment lacks statistical significance (p\>0.05). Instead, compared to
-baseline, we find a steady increase of relative queries from the
-beginning of lockdown onward. From this point queries increased around
-(*e*<sup>*β̂*<sub>3</sub></sup>−1) ⋅ 100=`0.518` percent each month – in
-addition to the assumed counterfactual time trend *β*<sub>1</sub>. This
+the baseline, we find a steady increase in relative queries from the
+beginning of the lockdown onward. From this point queries increased
+around $(e^{\hat{\beta}_3}-1)\cdot100=$`0.518` percent each month – in
+addition to the assumed counterfactual time trend $\beta_1$. This
 suggests that although people were saved concerning a COVID-19
-infection, there seem to be a negative external effect on other health
+infection, there seems to be a negative external effect on other health
 outcomes in Germany (in addition to the psychological and economic
 burden).
 
@@ -504,33 +504,41 @@ burden).
 
 Overall we have found a substantial increase in the relative interest in
 back pain based on online queries using Google Trends. What can be done?
-From a policy perspective it is clear that there need to be enough
-supply of health care provision in order for sufficient treatment,
-mitigate pain and avoidance of chronic disease. Another important aspect
-of back pain-treatment often is a person’s self awareness, to
-successfully figure out what he or she needs and when and what exercise
-to do. Here, in addition to professional help, [digital
+From a policy perspective, it is clear that there needs to be enough
+supply of health care provision for sufficient treatment, mitigation of
+pain, and avoidance of chronic disease. Another important aspect of back
+pain treatment often is a person’s self-awareness, to successfully
+figure out what he or she needs and when and what exercises to do. Here,
+in addition to professional help, [digital
 services](https://letmegooglethat.com/?q=back+pain+help) can support to
-easily access information and provide tools in order to relieve pain –
-given high quality information is provided.
+access information easily and provide tools in order to relieve pain –
+given high-quality information is provided.
 
-One thing we have to keep in mind, is that Google Trends reflect the
+One thing we have to keep in mind is that Google Trends reflect the
 importance of queries, relative to all queries at a point in time at a
-specific location. It is obvious that the overall internet queries
-increased strongly in 2020. So our results from above suggest that back
-pain queries increased even more strongly.
+specific location. It is obvious that overall internet queries increased
+strongly in 2020. So our results from above suggest that back pain
+queries increased even more strongly.
 
-Generally, we can imagine that process data from internet companies
-allow to address a lot interesting questions. Indeed,
+Generally, we can imagine that process-data from internet companies
+allows to address a lot of interesting questions. Indeed,
 Stephens-Davidowitz (2018) argues that people’s thoughts/motivations are
 much more honestly reflected in their internet searches, as compared to
 answering survey questions.
 
 ## References
 
+<div id="refs" class="references csl-bib-body hanging-indent">
+
+<div id="ref-brodeur2021covid" class="csl-entry">
+
 Brodeur, Abel, Andrew E Clark, Sarah Fleche, and Nattavudh Powdthavee.
 2021. “COVID-19, Lockdowns and Well-Being: Evidence from Google Trends.”
 *Journal of Public Economics* 193: 104346.
+
+</div>
+
+<div id="ref-ciaffi2021seasonality" class="csl-entry">
 
 Ciaffi, Jacopo, Riccardo Meliconi, Maria Paola Landini, Luana
 Mancarella, Veronica Brusi, Cesare Faldini, and Francesco Ursini. 2021.
@@ -538,36 +546,68 @@ Mancarella, Veronica Brusi, Cesare Faldini, and Francesco Ursini. 2021.
 *International Journal of Environmental Research and Public Health* 18
 (3): 1325.
 
+</div>
+
+<div id="ref-hoerger2020impact" class="csl-entry">
+
 Hoerger, Michael, Sarah Alonzi, Laura M Perry, Hallie M Voss, Sanjana
 Easwar, and James I Gerhart. 2020. “Impact of the COVID-19 Pandemic on
 Mental Health: Real-Time Surveillance Using Google Trends.”
 *Psychological Trauma: Theory, Research, Practice, and Policy* 12 (6):
 567.
 
+</div>
+
+<div id="ref-p2" class="csl-entry">
+
 Hyndman, Rob, George Athanasopoulos, Christoph Bergmeir, Gabriel
 Caceres, Leanne Chhay, Mitchell O’Hara-Wild, Fotios Petropoulos, Slava
-Razbash, Earo Wang, and Farah Yasmeen. 2021. *<span
-class="nocase">forecast</span>: Forecasting Functions for Time Series
-and Linear Models*. <https://pkg.robjhyndman.com/forecast/>.
+Razbash, Earo Wang, and Farah Yasmeen. 2021.
+*<span class="nocase">forecast</span>: Forecasting Functions for Time
+Series and Linear Models*. <https://pkg.robjhyndman.com/forecast/>.
+
+</div>
+
+<div id="ref-jebb2015time" class="csl-entry">
 
 Jebb, Andrew T, Louis Tay, Wei Wang, and Qiming Huang. 2015. “Time
 Series Analysis for Psychological Research: Examining and Forecasting
 Change.” *Frontiers in Psychology* 6: 727.
+
+</div>
+
+<div id="ref-knipe2020mapping" class="csl-entry">
 
 Knipe, Duleeka, Hannah Evans, Amanda Marchant, David Gunnell, and Ann
 John. 2020. “Mapping Population Mental Health Concerns Related to
 COVID-19 and the Consequences of Physical Distancing: A Google Trends
 Analysis.” *Wellcome Open Research* 5.
 
+</div>
+
+<div id="ref-p3" class="csl-entry">
+
 Long, Jacob A. 2020. *Jtools: Analysis and Presentation of Social
 Scientific Data*. <https://cran.r-project.org/package=jtools>.
+
+</div>
+
+<div id="ref-p1" class="csl-entry">
 
 Massicotte, Philippe, and Dirk Eddelbuettel. 2021. *gtrendsR: Perform
 and Display Google Trends Queries*.
 <https://CRAN.R-project.org/package=gtrendsR>.
 
+</div>
+
+<div id="ref-stephens2018everybody" class="csl-entry">
+
 Stephens-Davidowitz, Seth. 2018. *Everybody Lies: What the Internet Can
 Tell Us about Who We Really Are*. Bloomsbury Publishing.
+
+</div>
+
+<div id="ref-szilagyi2021google" class="csl-entry">
 
 Szilagyi, Istvan-Szilard, Torsten Ullrich, Kordula Lang-Illievich,
 Christoph Klivinyi, Gregor Alexander Schittek, Holger Simonis, and
@@ -576,12 +616,24 @@ the World’s Most Populated Regions Before and After the First Recorded
 COVID-19 Case: Infodemiological Study.” *Journal of Medical Internet
 Research* 23 (4): e27214.
 
+</div>
+
+<div id="ref-wagner2002segmented" class="csl-entry">
+
 Wagner, Anita K, Stephen B Soumerai, Fang Zhang, and Dennis Ross-Degnan.
 2002. “Segmented Regression Analysis of Interrupted Time Series Studies
 in Medication Use Research.” *Journal of Clinical Pharmacy and
 Therapeutics* 27 (4): 299–309.
 
+</div>
+
+<div id="ref-p4" class="csl-entry">
+
 Zeileis, Achim, Susanne Köll, and Nathaniel Graham. 2020. “Various
 Versatile Variances: An Object-Oriented Implementation of Clustered
 Covariances in R.” *Journal of Statistical Software* 95 (1): 1–36.
 <https://doi.org/10.18637/jss.v095.i01>.
+
+</div>
+
+</div>
